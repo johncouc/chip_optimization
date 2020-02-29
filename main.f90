@@ -1,41 +1,67 @@
+! COMMANDS TO RUN:
+! gfortran -c main.f90 eigv_module.f90
+! gfortran -c main.f90 eigv_module.f90
+! ./main
+! The matrices and results will be saved in output files 'fort.*'
+! where * respresents 11,12 for the input matrix and vector
+! 9 and 10 - output solutions for two methods
+
+! Module is based on: https://www.netlib.org/lapack/lug/node38.html
 MODULE sparse_system_solvers
 	IMPLICIT NONE
 	SAVE
 
 CONTAINS
+
+	! Solves general band matrices including tridiagonal matrices:
+	! LU factorization with partial pivoting
 	SUBROUTINE solver_v1(A, b, m, x)
-		INTEGER, INTENT(in) 				:: m
-		REAL, DIMENSION(m,m), INTENT(in)	:: A
-		REAL, DIMENSION(m)					:: b
-		REAL, DIMENSION(m), INTENT(out)		:: x
-		PRINT *, "AHA"
+		INTEGER								  	:: m
+		REAL, DIMENSION(m,m), INTENT(in)		:: A
+		REAL, DIMENSION(m,m)					:: AA
+		REAL, DIMENSION(m), INTENT(in)			:: b
+		REAL, DIMENSION(m), INTENT(out)			:: x
+		INTEGER, DIMENSION(m)					:: IPIV
+		INTEGER info, l_work
+		
+		! Make matrix and vector copies
+		AA = A
+		x = b
 
+		! Compute LU factorization 
+		CALL SGETRF(SIZE(AA,1), SIZE(AA,2), AA, m, IPIV, info)
 
-
-
-			!REAL(selected_real_kind(6,37)), DIMENSION(:,:), INTENT(in)				:: A
-			!REAL(selected_real_kind(6,37)), DIMENSION(SIZE(A,DIM=1), SIZE(A,DIM=2))	:: AA
-			!REAL(selected_real_kind(6,37)), DIMENSION(:),  INTENT(out)				:: lambdar, lambdai
-			!REAL(selected_real_kind(6,37)), DIMENSION(:,:), ALLOCATABLE				:: VLR
-		  	!REAL(selected_real_kind(6,37)), DIMENSION(:), ALLOCATABLE				:: work
-			!INTEGER info, l_work
-			!AA = A
-			!ALLOCATE(work(1))
-			!CALL SGEEV('N','N',SIZE(A, DIM=2), AA, SIZE(A, DIM=2), lambdar, lambdai, VLR, 1, VLR, 1, work, -1, info)
-			!l_work = work(1)
-			!DEALLOCATE(work)
-			!ALLOCATE(work(l_work))
-			!CALL SGEEV('N','N',SIZE(A, DIM=2), AA, SIZE(A, DIM=2), lambdar, lambdai, VLR, 1, VLR, 1, work, l_work, info)
-			!DEALLOCATE(work)			
-
-
-
+		! Solve system
+		CALL SGETRS('N',SIZE(AA, DIM=2),1, AA, SIZE(AA, DIM=1), IPIV, x, SIZE(x,1), info)
 	END SUBROUTINE solver_v1
+
+
+	! Solves symmetric and positive definite matrices including band matrices:
+	! Cholesky factorization
+	SUBROUTINE solver_v2(A, b, m, x)
+		INTEGER								  	:: m
+		REAL, DIMENSION(m,m), INTENT(in)		:: A
+		REAL, DIMENSION(m,m)					:: AA, A_u
+		REAL, DIMENSION(m), INTENT(in)			:: b
+		REAL, DIMENSION(m), INTENT(out)			:: x
+		INTEGER, DIMENSION(m)					:: IPIV
+		INTEGER info, l_work
+		
+		! Make matrix and vector copies
+		AA = A
+		x = b
+
+		! Solves a system of linear equations A*X = B where 
+		! A is an N-by-N symmetric positive definite matrix
+		! Performs Cholesky factorization
+		CALL SPOSV('L', SIZE(AA,1), 1, AA, SIZE(AA,1), x, SIZE(x,1), info)
+	END SUBROUTINE solver_v2
+
 END MODULE sparse_system_solvers
 
 SUBROUTINE get_sparse_matrix(A, m, rand_idx, rand_vect_real)
 	INTEGER, INTENT(in) 				:: m
-	INTEGER, DIMENSION(m,m)				:: A
+	REAL, DIMENSION(m,m)				:: A
 	REAL, DIMENSION(m), INTENT(IN)		:: rand_vect_real
 	REAL, DIMENSION(2*m), INTENT(IN)	:: rand_idx
 	REAL, DIMENSION(2*m)				:: rand_idx_COPY
@@ -69,7 +95,7 @@ END SUBROUTINE get_sparse_matrix
 
 SUBROUTINE get_symmetric_sparse_matrix(A, m, rand_idx, rand_vect_real)
 	INTEGER, INTENT(in) 				:: m
-	INTEGER, DIMENSION(m,m)				:: A
+	REAL, DIMENSION(m,m)				:: A
 	REAL, DIMENSION(m)					:: rand_vect_real
 	REAL, DIMENSION(2*m), INTENT(IN)	:: rand_idx
 	REAL, DIMENSION(2*m)				:: rand_idx_COPY
@@ -103,19 +129,22 @@ SUBROUTINE get_symmetric_sparse_matrix(A, m, rand_idx, rand_vect_real)
 END SUBROUTINE get_symmetric_sparse_matrix
 
 SUBROUTINE get_random_vector(b, m)
-	INTEGER, INTENT(in) 	:: m
-	REAL, DIMENSION(m)		:: b
+	INTEGER				 	:: m
+	REAL, DIMENSION(m)		:: bb, b
 
 	CALL RANDOM_SEED()
-	CALL RANDOM_NUMBER(b)
+	CALL RANDOM_NUMBER(bb)
+	b = FLOOR((m)*bb)
 END SUBROUTINE get_random_vector
 
 PROGRAM Main
-	!USE sparse_system_solvers
+	USE sparse_system_solvers
+	USE eigv_module
 
-	INTEGER, PARAMETER		:: m = 6		
-	INTEGER, DIMENSION(m,m)	:: A
-	REAL, DIMENSION(m)		:: b, rand_vect_real
+	INTEGER, PARAMETER		:: m = 20		
+	REAL, DIMENSION(m,m)	:: A
+	REAL, DIMENSION(m)		:: b, x1, x2, lambdar, lambdai
+	REAL, DIMENSION(m)		:: rand_vect_real
 	REAL, DIMENSION(2*m)	:: rand_idx
 	INTEGER i,n
 
@@ -126,11 +155,40 @@ PROGRAM Main
 	CALL RANDOM_SEED()
 	CALL RANDOM_NUMBER(rand_vect_real)
 
-	CALL get_sparse_matrix(A, m, rand_idx, rand_vect_real)
+	!CALL get_sparse_matrix(A, m, rand_idx, rand_vect_real)
 	CALL get_symmetric_sparse_matrix(A, m, rand_idx, rand_vect_real)
+	CALL get_random_vector(b, m)
+
+	! EXAMPLE POSITIVE DEFINITE MATRIX:
+	!A = reshape((/2, -2, -3, -2, 5, 4, -3, 4, 5/), (/3,3/))
+	!b = (/7,-12,-12/)
+
+	CALL solver_v1(A, b, m, x1)
+	CALL solver_v2(A, b, m, x2)
+
+	!Compute the eigenvalues to see if matrix is positive definite
+	CALL eig(A, lambdar, lambdai)
+	PRINT *, '--------------------------'
+	PRINT *, 'Real eigenvalues: ', lambdar
+	PRINT *, 'Img eigenvalues: ', lambdai
+	PRINT *, '--------------------------'
+	PRINT *, 'LU SOLUTION: ', x1
+	PRINT *, 'CHOLESKY SOLUTION: ', x2
 
 	! COUT matrix to file
 	DO i=1,m
 		WRITE(12,*) A(i,:)
+	END DO
+
+	DO i=1,m
+		WRITE(11,*) b(i)
+	END DO
+
+	DO i=1,m
+		WRITE(10,*) x1(i)
+	END DO
+
+	DO i=1,m
+		WRITE(9,*) x2(i)
 	END DO
 END PROGRAM
