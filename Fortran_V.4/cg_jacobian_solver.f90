@@ -106,6 +106,9 @@ CONTAINS
             alpha = 1.0
             beta  = 0.0
             info = MKL_SPARSE_D_CREATE_CSR(csrA,SPARSE_INDEX_BASE_ONE,m,m,IA,IA(2),JAA,acsrr)
+
+            DEALLOCATE(JAA)
+            DEALLOCATE(acsrr)
             temp     = 0.D0
 
     !---------------------------------------------------------------------------
@@ -207,7 +210,5 @@ CONTAINS
 999         info = MKL_SPARSE_DESTROY(csrA)
             CALL MKL_FREE_BUFFERS
 
-            DEALLOCATE(JAA)
-            DEALLOCATE(acsrr)
     END SUBROUTINE pardiso_solver
 END MODULE cg_jacobian_solver

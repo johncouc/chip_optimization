@@ -1,6 +1,5 @@
 module fvm
-    INCLUDE 'mkl_pardiso.f77'
-	!USE sparse_system_solvers
+	USE sparse_system_solvers
     USE cg_jacobian_solver
 	
 
@@ -172,9 +171,8 @@ CONTAINS
         f(l) = Q*hx*hy + bdir
 
         enddo
-        CALL pardiso_solver(DAT(1:(d)**2,1:(d)**2), f, d*d, DAT(:,(d)**2+1))
-        !CALL solver_v2(DAT(1:(d)**2,1:(d)**2), f, d*d, DAT(:,(d)**2+1))
-!        CALL solver_v2(DAT(1:(d)**2,1:(d)**2), f, d*d, DAT(:,(d)**2+1))
+        !CALL pardiso_solver(DAT(1:(d)**2,1:(d)**2), f, d*d, DAT(:,(d)**2+1))
+        CALL solver_v2(DAT(1:(d)**2,1:(d)**2), f, d*d, DAT(:,(d)**2+1))
      
         !open (unit = 4, file = "temp")
         !do l=1,N
