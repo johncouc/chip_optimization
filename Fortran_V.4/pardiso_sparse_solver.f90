@@ -108,7 +108,7 @@ CONTAINS
         ! all memory that is necessary for the factorization
 
         phase = 11 ! only reordering and symbolic factorization
-        CALL pardiso(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
+        CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
                       idum, nrhs, iparm, msglvl, ddum, ddum, error)
         
         !WRITE(*,*) 'Reordering completed ... '
@@ -121,7 +121,7 @@ CONTAINS
 
         !.. Factorization.
         phase = 22 ! only factorization
-        CALL pardiso(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
+        CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
                       idum, nrhs, iparm, msglvl, ddum, ddum, error)
         !WRITE(*,*) 'Factorization completed ... '
         IF (error /= 0) THEN
@@ -132,7 +132,7 @@ CONTAINS
         !.. Back substitution and iterative refinement
         iparm(8) = 2 ! max numbers of iterative refinement steps
         phase = 33 ! only solving
-        CALL pardiso(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
+        CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
                       idum, nrhs, iparm, msglvl, b, x, error)
         !WRITE(*,*) 'Solve completed ... '
         IF (error /= 0) THEN
@@ -143,7 +143,7 @@ CONTAINS
         1000 CONTINUE
         !.. Termination and release of memory
         phase = -1 ! release internal memory
-        CALL pardiso(pt, maxfct, mnum, mtype, phase, m, ddum, idum, idum, &
+        CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m, ddum, idum, idum, &
                       idum, nrhs, iparm, msglvl, ddum, ddum, error1)
 
         IF (ALLOCATED(jaa)) DEALLOCATE(jaa)
