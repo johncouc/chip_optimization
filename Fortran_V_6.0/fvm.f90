@@ -225,8 +225,8 @@ CONTAINS
     subroutine EV_GRAD_F_CHIP(N, X, NEW_X, GRAD, DAT, IDAT, IERR)
       implicit none
 
-        integer(8) N, NEW_X
-      
+        integer(8) NEW_X
+        integer N
         REAL(8)  X(N), GRAD(N)
         REAL(8) DAT( 3*d**2-2*d, 2),IDAT(d+1,d+1)
 
