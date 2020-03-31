@@ -1,6 +1,8 @@
 module fvm
+
 	USE sparse_system_solvers
-    USE cg_jacobian_solver
+    	USE pardiso_sparse_solver
+
 	
 
 IMPLICIT NONE
@@ -171,8 +173,10 @@ CONTAINS
         f(l) = Q*hx*hy + bdir
 
         enddo
-        !CALL pardiso_solver(DAT(1:(d)**2,1:(d)**2), f, d*d, DAT(:,(d)**2+1))
-        CALL solver_v2(DAT(1:(d)**2,1:(d)**2), f, d*d, DAT(:,(d)**2+1))
+
+        CALL pardiso_sym_solver(DAT(1:(d)**2,1:(d)**2), f, d*d, DAT(:,(d)**2+1))
+!        CALL solver_v2(DAT(1:(d)**2,1:(d)**2), f, d*d, DAT(:,(d)**2+1))
+!        CALL solver_v2(DAT(1:(d)**2,1:(d)**2), f, d*d, DAT(:,(d)**2+1))
      
         !open (unit = 4, file = "temp")
         !do l=1,N
@@ -259,7 +263,7 @@ CONTAINS
 !FIELD ADJOINT EQ:
                !read(*,*) 
                
-               CALL pardiso_solver(DAT(1:d*d,1:d*d),-DAT(1:d*d,d*d+1),d*d,PSI)
+               CALL pardiso_sym_solver(DAT(1:d*d,1:d*d),-DAT(1:d*d,d*d+1),d*d,PSI)
                !CALL solver_v22(DAT(1:d*d,1:d*d),-DAT(1:d*d,d*d+1),d*d,PSI)
                
                 lengthx = 0.005d0
@@ -570,4 +574,9 @@ CONTAINS
       return
       !write (*,*) "JAC G"
            end
+
 END MODULE
+
+
+
+

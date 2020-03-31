@@ -5,9 +5,10 @@
 ! Based on "pardiso_sym_f90.f90" example program to show the use of the "PARDISO" routine
 ! for symmetric linear systems
 !---------------------------------------------------------------------
+    INCLUDE 'mkl_pardiso.f90'
 MODULE pardiso_sparse_solver
     USE mkl_pardiso
-    !INCLUDE 'mkl_pardiso.fi'
+
     INTEGER, PARAMETER :: dp = KIND(1.0D0)
 CONTAINS
     SUBROUTINE  uncompressed_to_CSR_converter(ADNS, m, ja, ia, Acsr)
@@ -43,6 +44,7 @@ CONTAINS
         REAL(KIND=DP), DIMENSION(m)                     :: x
         !.. Internal solver memory pointer
         TYPE(MKL_PARDISO_HANDLE), ALLOCATABLE           :: pt(:)
+      ! integer*8, allocatable :: pt(:)
         !.. All other variables
         INTEGER, ALLOCATABLE                            :: iparm(:)
         REAL(KIND=DP), DIMENSION(m*m)                   :: acsr
@@ -106,11 +108,16 @@ CONTAINS
 
         !.. Reordering and Symbolic Factorization, This step also allocates
         ! all memory that is necessary for the factorization
-
+       ! write (*,*) "ia : ", ia
+       ! read(*,*)
+       ! write (*,*) "ja : ", ja
+       ! read(*,*)
+       ! write(*,*) "ACSRR : ", acsrr
+       ! read(*,*)
         phase = 11 ! only reordering and symbolic factorization
         CALL pardiso(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
                       idum, nrhs, iparm, msglvl, ddum, ddum, error)
-        
+        !write(*,*) "phase 1 complete" 
         !WRITE(*,*) 'Reordering completed ... '
         IF (error /= 0) THEN
            WRITE(*,*) 'The following ERROR was detected: ', error
@@ -124,6 +131,7 @@ CONTAINS
         CALL pardiso(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
                       idum, nrhs, iparm, msglvl, ddum, ddum, error)
         !WRITE(*,*) 'Factorization completed ... '
+        !write(*,*) "phase 2 complete"
         IF (error /= 0) THEN
            WRITE(*,*) 'The following ERROR was detected: ', error
            GOTO 1000
@@ -157,4 +165,268 @@ CONTAINS
 
         IF (error /= 0) STOP 1
     END SUBROUTINE pardiso_sym_solver
+
+
+
+
+   SUBROUTINE pardiso_sym_solver2(acsr,ia,ja, b, m, x)
+        INTEGER                                         :: m, zero_index
+!        REAL(KIND=DP), DIMENSION(m,m), INTENT(inout)    :: A
+        REAL(KIND=DP), DIMENSION(m)                     :: b
+        REAL(KIND=DP), DIMENSION(m)                     :: x
+        !.. Internal solver memory pointer
+        TYPE(MKL_PARDISO_HANDLE), ALLOCATABLE           :: pt(:)
+!        INTEGER*8, ALLOCATABLE :: pt(:)
+        !.. All other variables
+        INTEGER, ALLOCATABLE                            :: iparm(:)
+   !     REAL(KIND=DP), DIMENSION(m*m)                   :: acsr
+        INTEGER, DIMENSION(m+1)                         :: ia
+        INTEGER, DIMENSION(m*m)                         :: ja
+        INTEGER, DIMENSION(:), ALLOCATABLE              :: JAA
+        REAL(KIND=DP), DIMENSION(:), ALLOCATABLE        :: acsrr
+        REAL(KIND=DP), DIMENSION(:), INTENT(inout)      ::acsr
+        REAL(KIND=DP) ddum(1)
+        INTEGER maxfct, mnum, mtype, phase, nrhs, error, msglvl
+        INTEGER error1
+        INTEGER i, idum(1)
+
+        !.. Fill all arrays containing matrix data.
+        nrhs = 1
+        maxfct = 1
+        mnum = 1
+        write(*,*) "PARDISO START"
+        ! Convert a sparse matrix in uncompressed representation to the CSR format
+!        CALL uncompressed_to_CSR_converter(A, m, ja, ia, acsr)
+
+        zero_index = ia(size(ia)) - 1
+        ALLOCATE(jaa(zero_index))
+        ALLOCATE(acsrr(zero_index))
+        jaa = ja(:zero_index)
+        acsrr = acsr(:zero_index)
+
+        !..
+        !.. Set up PARDISO control parameter
+        !..
+        ALLOCATE(iparm(64))
+
+        iparm = 0
+        iparm(1) = 1 ! no solver default
+        iparm(2) = 2 ! fill-in reordering from METIS
+        iparm(4) = 0 ! no iterative-direct algorithm
+        iparm(5) = 0 ! no user fill-in reducing permutation
+        iparm(6) = 0 ! =0 solution on the first n components of x
+        iparm(8) = 2 ! numbers of iterative refinement steps
+        iparm(10) = 13 ! perturb the pivot elements with 1E-13
+        iparm(11) = 1 ! use nonsymmetric permutation and scaling MPS
+        iparm(13) = 0 ! maximum weighted matching algorithm is switched-off (default for symmetric). Try iparm(13) = 1 in case of inappropriate accuracy
+        iparm(14) = -1 ! Output: number of perturbed pivots
+        iparm(17) = -1 ! Output: number of non-zero elements in the factors
+        iparm(18) = -1 ! Output: number of nonzeros in the factor LU
+        iparm(19) = -1 ! Output: Mflops for LU factorization
+        iparm(20) = -1 ! Output: Numbers of CG Iterations
+        iparm(36) = 0 ! matrix stored in CSR format
+        
+
+        error  = 0 ! initialize error flag
+        msglvl = 0 ! print statistical information
+        mtype  = 2 ! symmetric, positive definite
+
+        !.. Initialize the internal solver memory pointer. This is only
+        ! necessary for the FIRST call of the PARDISO solver.
+
+        ALLOCATE (pt(64))
+        DO i = 1, 64
+           pt(i)%DUMMY =  0
+          ! pt(i)=0
+        END DO
+
+        !.. Reordering and Symbolic Factorization, This step also allocates
+        ! all memory that is necessary for the factorization
+        write (*,*) "ia : ", ia
+        read(*,*)
+        write (*,*) "jaa : ", jaa
+        read(*,*)
+        write(*,*) "ACSRR : ", acsrr
+        read(*,*)
+        phase = 11 ! only reordering and symbolic factorization
+        CALL pardiso(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
+                      idum, nrhs, iparm, msglvl, ddum, ddum, error)
+        write(*,*) "phase 1 complete" 
+        !WRITE(*,*) 'Reordering completed ... '
+        IF (error /= 0) THEN
+           WRITE(*,*) 'The following ERROR was detected: ', error
+           GOTO 1000
+        END IF
+        !WRITE(*,*) 'Number of nonzeros in factors = ',iparm(18)
+        !WRITE(*,*) 'Number of factorization MFLOPS = ',iparm(19)
+
+        !.. Factorization.
+        phase = 22 ! only factorization
+        CALL pardiso(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
+                      idum, nrhs, iparm, msglvl, ddum, ddum, error)
+        !WRITE(*,*) 'Factorization completed ... '
+        write(*,*) "phase 2 complete"
+        IF (error /= 0) THEN
+           WRITE(*,*) 'The following ERROR was detected: ', error
+           GOTO 1000
+        ENDIF
+
+        !.. Back substitution and iterative refinement
+        iparm(8) = 2 ! max numbers of iterative refinement steps
+        phase = 33 ! only solving
+        CALL pardiso(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
+                      idum, nrhs, iparm, msglvl, b, x, error)
+        !WRITE(*,*) 'Solve completed ... '
+
+        write(*,*) "x = " ,x
+        IF (error /= 0) THEN
+           WRITE(*,*) 'The following ERROR was detected: ', error
+           GOTO 1000
+        ENDIF
+          
+        1000 CONTINUE
+        !.. Termination and release of memory
+        phase = -1 ! release internal memory
+        CALL pardiso(pt, maxfct, mnum, mtype, phase, m, ddum, idum, idum, &
+                      idum, nrhs, iparm, msglvl, ddum, ddum, error1)
+
+        IF (ALLOCATED(jaa)) DEALLOCATE(jaa)
+        IF (ALLOCATED(acsrr)) DEALLOCATE(acsrr)
+        IF (ALLOCATED(iparm)) DEALLOCATE(iparm)
+
+        IF (error1 /= 0) THEN
+           WRITE(*,*) 'The following ERROR on release stage was detected: ', error1
+           STOP 1
+        ENDIF
+
+        IF (error /= 0) STOP 1
+    END SUBROUTINE pardiso_sym_solver2
+      SUBROUTINE pardiso_sym_solver22(acsrr,ia,ja, b, m, x)
+        INTEGER                                         :: m, zero_index
+!        REAL(KIND=DP), DIMENSION(m,m), INTENT(inout)    :: A
+        REAL(KIND=DP), DIMENSION(m)                     :: b
+        REAL(KIND=DP), DIMENSION(m)                     :: x
+        !.. Internal solver memory pointer
+        TYPE(MKL_PARDISO_HANDLE), ALLOCATABLE           :: pt(:)
+        !.. All other variables
+        INTEGER, ALLOCATABLE                            :: iparm(:)
+        REAL(KIND=DP), DIMENSION(m*m)                   :: acsr
+        INTEGER, DIMENSION(m+1)                         :: ia
+        INTEGER, DIMENSION(m*m)                         :: ja
+        INTEGER, DIMENSION(:), ALLOCATABLE              :: JAA
+!        REAL(KIND=DP), DIMENSION(:), ALLOCATABLE        :: acsrr
+        REAL(KIND=DP), DIMENSION(:), INTENT(inout)      ::acsrr
+        REAL(KIND=DP) ddum(1)
+        INTEGER maxfct, mnum, mtype, phase, nrhs, error, msglvl
+        INTEGER error1
+        INTEGER i, idum(1)
+
+        !.. Fill all arrays containing matrix data.
+        nrhs = 1
+        maxfct = 1
+        mnum = 1
+
+        ! Convert a sparse matrix in uncompressed representation to the CSR format
+!        CALL uncompressed_to_CSR_converter(A, m, ja, ia, acsr)
+
+        zero_index = ia(size(ia)) - 1
+        ALLOCATE(jaa(zero_index))
+        !ALLOCATE(acsrr(zero_index))
+        jaa = ja(:zero_index)
+       ! acsrr = acsr(:zero_index)
+
+        !..
+        !.. Set up PARDISO control parameter
+        !..
+        ALLOCATE(iparm(64))
+
+        iparm = 0
+        iparm(1) = 1 ! no solver default
+        iparm(2) = 2 ! fill-in reordering from METIS
+        iparm(4) = 0 ! no iterative-direct algorithm
+        iparm(5) = 0 ! no user fill-in reducing permutation
+        iparm(6) = 0 ! =0 solution on the first n components of x
+        iparm(8) = 2 ! numbers of iterative refinement steps
+        iparm(10) = 13 ! perturb the pivot elements with 1E-13
+        iparm(11) = 1 ! use nonsymmetric permutation and scaling MPS
+        iparm(13) = 0 ! maximum weighted matching algorithm is switched-off (default for symmetric). Try iparm(13) = 1 in case of inappropriate accuracy
+        iparm(14) = -1 ! Output: number of perturbed pivots
+        iparm(17) = -1 ! Output: number of non-zero elements in the factors
+        iparm(18) = -1 ! Output: number of nonzeros in the factor LU
+        iparm(19) = -1 ! Output: Mflops for LU factorization
+        iparm(20) = -1 ! Output: Numbers of CG Iterations
+        iparm(36) = 0 ! matrix stored in CSR format
+        
+
+        error  = 0 ! initialize error flag
+        msglvl = 0 ! print statistical information
+        mtype  = 2 ! symmetric, positive definite
+
+        !.. Initialize the internal solver memory pointer. This is only
+        ! necessary for the FIRST call of the PARDISO solver.
+
+        ALLOCATE (pt(64))
+        DO i = 1, 64
+           pt(i)%DUMMY =  0
+        END DO
+
+        !.. Reordering and Symbolic Factorization, This step also allocates
+        ! all memory that is necessary for the factorization
+        write (*,*) "ia : ", ia
+        read(*,*)
+        write (*,*) "ja : ", ja
+        read(*,*)
+        write(*,*) "ACSRR : ", acsrr
+        read(*,*)
+        !phase = 11 ! only reordering and symbolic factorization
+        !CALL pardiso(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
+         !             idum, nrhs, iparm, msglvl, ddum, ddum, error)
+        !write(*,*) "phase 1 complete" 
+        !WRITE(*,*) 'Reordering completed ... '
+        IF (error /= 0) THEN
+           WRITE(*,*) 'The following ERROR was detected: ', error
+           GOTO 1000
+        END IF
+        !WRITE(*,*) 'Number of nonzeros in factors = ',iparm(18)
+        !WRITE(*,*) 'Number of factorization MFLOPS = ',iparm(19)
+
+        !.. Factorization.
+        !phase = 22 ! only factorization
+        !CALL pardiso(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
+         !             idum, nrhs, iparm, msglvl, ddum, ddum, error)
+        !WRITE(*,*) 'Factorization completed ... '
+        write(*,*) "phase 2 complete"
+        IF (error /= 0) THEN
+           WRITE(*,*) 'The following ERROR was detected: ', error
+           GOTO 1000
+        ENDIF
+
+        !.. Back substitution and iterative refinement
+        iparm(8) = 2 ! max numbers of iterative refinement steps
+        phase = 33 ! only solving
+        CALL pardiso(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
+                      idum, nrhs, iparm, msglvl, b, x, error)
+        !WRITE(*,*) 'Solve completed ... '
+        IF (error /= 0) THEN
+           WRITE(*,*) 'The following ERROR was detected: ', error
+           GOTO 1000
+        ENDIF
+          
+        1000 CONTINUE
+        !.. Termination and release of memory
+        phase = -1 ! release internal memory
+        CALL pardiso(pt, maxfct, mnum, mtype, phase, m, ddum, idum, idum, &
+                      idum, nrhs, iparm, msglvl, ddum, ddum, error1)
+
+        IF (ALLOCATED(jaa)) DEALLOCATE(jaa)
+!        IF (ALLOCATED(acsrr)) DEALLOCATE(acsrr)
+        IF (ALLOCATED(iparm)) DEALLOCATE(iparm)
+
+        IF (error1 /= 0) THEN
+           WRITE(*,*) 'The following ERROR on release stage was detected: ', error1
+           STOP 1
+        ENDIF
+
+        IF (error /= 0) STOP 1
+    END SUBROUTINE pardiso_sym_solver22
 END MODULE pardiso_sparse_solver
