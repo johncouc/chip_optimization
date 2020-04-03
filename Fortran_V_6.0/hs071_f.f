@@ -15,8 +15,9 @@ C
       program example
 
 C
+      use timings
       use fvm
-        
+
       implicit none
 C
 C     include the Ipopt return codes
@@ -28,6 +29,8 @@ C
       integer(8)     N,     M,     NELE_JAC,     NELE_HESS,      IDX_STY
       parameter  ( N =160*160, M = 1, NELE_JAC = N, NELE_HESS = 0)
       parameter  (IDX_STY = 1 )
+      !REAL(8) start, finish
+
 C
 C     Space for multipliers and constraints
 C
@@ -70,6 +73,14 @@ C
       real(8), dimension(1,N) :: v , GRAD
             !  call fvm_simulate(v, d,DAT,IDAT)
 C     d**2,d**2+1
+
+      call mkl_set_num_threads(4)
+      call startClock()
+      call tic()
+
+      !CALL tic()
+      !CALL CPU_TIME(start)
+
       d=((floor(sqrt(N*1d0))+1))
       
       allocate (DAT(3* d**2-2*d,2))
@@ -104,6 +115,8 @@ C
 C     First create a handle for the Ipopt problem (and read the options
 C     file)
 C
+!["ipopt.print_level"] = 0
+
       IPROBLEM = IPCREATE(N, X_L, X_U, M, G_L, G_U, NELE_JAC,0, 
      1     IDX_STY, EV_F_CHIP, EV_G, EV_GRAD_F_CHIP, EV_JAC_G)
       if (IPROBLEM.eq.0) then
@@ -136,6 +149,9 @@ C     Set an integer option
 C
       IERR = IPADDINTOPTION(IPROBLEM, 'max_iter',150)
       if (IERR.ne.0 ) goto 9990
+
+      !IERR = IPADDINTOPTION(IPROBLEM, 'print_level',0)
+      !if (IERR.ne.0 ) goto 9990
 C
 C     Set a double precision option
 C
@@ -162,6 +178,16 @@ C     Call optimization routine
 
 
       IERR = IPSOLVE(IPROBLEM, X, G, F, LAM, Z_L, Z_U, DAT, IDAT)
+
+      call stopClock()
+      call toc()
+
+      !CALL CPU_TIME(finish)
+      !print *,finish,start
+      !WRITE(*, '(" CPU time: ", F10.6, " sec.")') (finish - start)
+      !call toc()
+
+
        read(*,*)
       open (unit = 2, file = "optimization_result")
       do I=1,N
