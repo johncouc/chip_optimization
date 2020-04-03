@@ -12,3 +12,5 @@ fortran=  reshape(optimization_result,[sqrt(n_design_cells)/2,sqrt(n_design_cell
 fortran = [(fortran),fliplr(fortran);flipud(fortran), fliplr(flipud(fortran))];
 heatmap(fortran,'gridvisible','off')
 title('optimal solution')
+
+
