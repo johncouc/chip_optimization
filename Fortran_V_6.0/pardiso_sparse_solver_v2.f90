@@ -77,6 +77,19 @@ SUBROUTINE pardiso_sym_solver2(acsr, ia, ja, b, m, x)
 
 END SUBROUTINE
 
+SUBROUTINE pardiso_sym_solver3(acsr, ia, ja, b, m, x)
+    INTEGER(8)                              :: m
+    REAL(8), DIMENSION(3*m**2-2*m)          :: acsr
+    REAL(8), dimension(m*m)                 :: b, x
+    INTEGER(8), dimension(3*m**2-2*m)       :: ja
+    INTEGER(8), dimension(m*m+1)            :: ia
+
+    phase = 33 ! only solving
+    CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m*m, acsr, ia, ja, perm, nrhs, iparm, msglvl, b, x, error)
+
+END SUBROUTINE
+
+
 SUBROUTINE pardiso_release(m)
     INTEGER(8) :: m
                       
