@@ -1,354 +1,468 @@
-module FVM
-
-IMPLICIT NONE
-SAVE
-
+MODULE fvm
+    USE pardiso_sparse_solver_v3
+    IMPLICIT NONE
+    SAVE
+    REAL(8):: p
+    INTEGER(8):: maxiters,d
+    INTEGER(8), dimension(:), allocatable:: DAT3,DAT4
 CONTAINS
 
-subroutine fvm_with_Gradient(v, m)
+    SUBROUTINE EV_F_CHIP(N, X, NEW_X, F, DAT, IDAT, IERR)
+        IMPLICIT NONE
+        INTEGER(8) N, NEW_X
+        REAL(8) F, X(N)
+        REAL(8) DAT(3*d**2-2*d,2), IDAT(d+1,d+1)
+        INTEGER(8) IERR
+        
+        IF (NEW_X) THEN
+            CALL fvm_simulate(X,d,DAT,IDAT)
+        ENDIF
 
-	INTEGER								   :: m, l !number of design variables
-	REAL                                   :: Cost, Dx, Dy, Dz, Q, Ts, p
-	REAL                                   :: a, b, n, dx, dy, hx, hy, dkdk
-	REAL                                   :: i, j, I, J, l, bdir, dbdir, dSdir, Sdir
-	REAL                                   :: ke, kw, kn, ks, dharm
-	REAL								   :: dx_east, dx_west, dy_north, dy_south
-	REAL, DIMENSION(3)                     :: dxi_dv, vec
-	REAL, DIMENSION(5)                     :: xi
-	REAL, DIMENSION(m)                     :: G
-	REAL, DIMENSION(m), INTENT(inout)      :: v
-	REAL, DIMENSION(sqrt(m)+1)*(sqrt(m)+1) :: f, PSI, theta_R_v, T
-	REAL, DIMENSION(sqrt(m),sqrt(m)) 	   :: theta_K_v, K
-	REAL, DIMENSION(sqrt(m)+2),sqrt(m)+2) :: theta_k_v, k
-	REAL, DIMENSION(sqrt(m)+1)*(sqrt(m)+1,sqrt(m)+1)*(sqrt(m)+1) :: dxi_dk, f, A
+        F = 0.5*dot_product(DAT(:,2),DAT(:,2))/(1d0*INT(N))
+        IERR = 0
+        RETURN
+    END
 
-	! assign variables
-	
-	Dx = 0.01
-	Dy = 0.01
-	Dz = 0.001
-	Q = 2/(Dz*Dx*Dy)
-	Ts = 293
-	p = 3
-	a = sqrt(m)+1  !(elements/line)
-	b = sqrt(m)+1  !(elements/col)
-	n = a*b      !number of state grid cells. 
-	dx = Dx/(a-1) 
-	dy = Dy/(b-1)  !dy should preferrably divide 0.001
-	theta_k_v = 0 
-	dxi_dk = 0
+    SUBROUTINE fvm_simulate(v, d,DAT,IDAT)
+        INTEGER(8), intent(in)::d
+        INTEGER(8)	:: l,b,a,i, j, ii, jj, m,tot,el ! number of design variables
+        REAL(8)     ::  lengthx, lengthy, lengthz, Q, Ts
+        REAL(8)     ::  n, dx, dy, hx, hy
+        REAL(8)     ::  bdir,  Sdir
+        REAL(8)     :: ke, kw, kn, ks !c
+        REAL(8)		:: dx_east, dx_west, dy_north, dy_south
+        REAL(8), DIMENSION(5)  :: xi
+        REAL(8), DIMENSION((d-1)**2), INTENT(in)   :: v
+        REAL(8), DIMENSION(d*d) :: f
+        REAL(8), DIMENSION(d+1,d+1), INTENT(inout) :: IDAT
+        REAL(8), DIMENSION(3*d*d-2*d ,2),INTENT(inout) :: DAT
+        
+        ! Assign variables
+        lengthx = 0.005d0
+        lengthy = 0.005d0
+        lengthz = 0.001d0
+        Q = 0.5d0/(lengthz*lengthx*lengthy)
+        Ts = 293d0
+        DAT3(2)=49532 
+        a = d
+        b = a
+        m = (a-1)**2
+        n = a*b !number of state grid cells.
+        dx = lengthx/(a-1) 
+        dy = lengthy/(b-1)  
+        DAT=0d0 
 
-	! after discretization, it is decided how much metal
-    ! to put in a particular cell.
-	
-    K = 1
-	
-    ! create discretized conductivity (design) field 
-	
-    do I = 1,b-1
-		do J = 1,a-1
-			K(I,J) = 0.2+(65-0.2)*v(I+(a-1)*(J-1))**p  
-			theta_k_v(I,J) =  p*(65-0.2)*v(I+(a-1)*(J-1))**(p-1) 
-		enddo
-    enddo
-	
-	k = 0
-    k(2:a,2:b) = K 
-	k(1,2:a) = K(1,:)
-	k(a+1,2:a) = K(a-1,:)     !fictitious design nodes 
-	k(2:a,1) = K(:,1)
-	k(2:a,a+1) = K(:,a-1)
-	
-    theta_k_v(2:a,2:b) = theta_K_v 
-	theta_k_v(1,2:a) = theta_K_v(1,:)
-	theta_k_v(a+1,2:a) = theta_K_v(a-1,:)     !fictitious design nodes 
-	theta_k_v(2:a,1) = theta_K_v(:,1)
-	theta_k_v(2:a,a+1) = theta_K_v(:,a-1)
-	
-	f = 0
-	A = 0
+        ! Create discretized conductivity (design) field
+        DO ii = 2,d
+            DO jj = 2,d
+                IDAT(ii,jj) = 0.2d0+(65d0-0.2d0)*v(ii-1+(a-1)*(jj-2))**p
+            ENDDO
+        ENDDO
 
-	do i = 1,n
-		A(i,i) = 1   
-	enddo
+        IDAT(1,2:d)= IDAT(2,2:d)
+        IDAT(d+1,2:d)=IDAT(d,2:d)
+        IDAT(:,1)=IDAT(:,2)
+        IDAT(:,d+1)=IDAT(:,d)
 
-do l = 1,n
+        f = 0
+        tot =1
 
-   i= 1+ mod(l-1,a) 
-   j =  ceiling(l/b) 
+        DO l = 1,n
+            dat3(l)=tot
+            el=0
+            i= 1+ mod(l-1,a)
+            j =  ceiling(1d0*l/b)
     
-! check cell dimensions 
+            ! Check cell dimensions
+            IF ( i==a .OR. i==1)  THEN
+             hx = dx/2
+            ELSE
+            hx = dx
+            ENDIF
 
-if ( i==a .or. i==1)  then
-   hx = dx/2 
-else 
-   hx = dx 
-endif
+            IF (j==1 .OR. j==b) THEN
+            hy = dy/2
+            ELSE
+            hy = dy
+            ENDIF
 
-if (j==1 .or. j==b) then
-   hy = dy/2 
-else
-   hy = dy 
-endif
+            ! Initialize xi & interpolate .OR.conductivities of each side
+            kw =  2* (IDAT(i,j)**(-1)+IDAT(i,j+1)**(-1))**(-1)
+            ke =  2*(1/IDAT(i+1,j)+1/IDAT(i+1,j+1))**(-1)
+            kn = 2*(1/IDAT(i,j+1) + 1/IDAT(i+1,j+1))**(-1)
+            ks = 2*(1/IDAT(i,j) + 1/IDAT(i+1,j))**(-1)
+            xi = 0
+            bdir = 0
+            Sdir = 0
+            
+            ! Start building stiffness matrix
+            IF (.NOT. (i==1)) THEN
+                IF (i==a .OR. i==2) THEN
+                    dx_west = 0.75d0*dx
+                ELSE
+                    dx_west = dx
+                ENDIF
+                xi(1) =  - (kw*hy)/dx_west
+            ENDIF
 
-! initialize xi & interpolate for conductivities of each side
+            IF (.NOT. (i==a)) THEN
+                IF (i==a-1 .OR. i==1) THEN
+                    dx_east = 0.75d0*dx
+                ELSE
+                    dx_east = dx
+                ENDIF
+                xi(2) =  -(ke*hy)/dx_east
+                tot=tot+1
+                el=el+1
+                DAT(DAT3(l)+el,1) = xi(2)
+                DAT4(DAT3(l)+el)=l+1
+            ENDIF
 
-    kw =  2* (k(i,j)**(-1)+k(i,j+1)**(-1))**(-1) 
-    ke =  2*(1/k(i+1,j)+1/k(i+1,j+1))**(-1) 
-    kn = 2*(1/k(i,j+1) + 1/k(i+1,j+1))**(-1) 
-    ks = 2*(1/k(i,j) + 1/k(i+1,j))**(-1)   
-    xi = 0
-    bdir = 0 
-    Sdir = 0 
-	
-! start building stiffness matrix       
+            IF (.NOT. (j==1)) THEN
+                IF (j==2 .OR. j==b) THEN
+                    dy_south = 0.75d0*dy
+                ELSE
+                    dy_south = dy
+                ENDIF
+                xi(3) =  - (ks*hx)/dy_south
+            ENDIF
 
-if (.not. (i==1)) then
-    if (i==a .or. i==2) then
-    dx_west = 0.75*dx 
-    else
-    dx_west = dx 
-    end if
-    xi(1) =  - (kw*hy)/dx_west 
-    A(l,l-1) =  xi(1) 
-    dxi_dk(l,l-1) = -hy/dx_west 
-  
-end if
+            IF (.NOT. (j==b)) THEN
+                IF ((j==b-1) .OR. (j==1)) THEN
+                    dy_north = 0.75d0*dy
+                ELSE
+                    dy_north = dy
+                ENDIF
+                xi(4) = -(kn*hx)/dy_north
+                el= el+1
+                tot=tot+1
+                DAT(DAT3(l)+el,1) = xi(4)
+                DAT4(DAT3(l)+el)=l+a
+            ENDIF
 
-if (.not. (i==a)) then
-    if (i==a-1 .or. i==1) then
-    dx_east = 0.75*dx 
-    else
-    dx_east = dx 
-    end
-    xi(2) =  -(ke*hy)/dx_east 
-    A(l,l+1) =  xi(2) 
-    dxi_dk(l,l+1) =  -hy/dx_east 
-end if
+            ! Define source terms .OR.Dirichlet Boundary
+            IF (( ((j-1)*dy >= 0.003d0) .and. ((j-1)*dy <= 0.005d0))) THEN
+                IF (i == 1) THEN
+                    bdir = 2* Ts*kw*hy/hx
+                    Sdir = 2*kw*hy/hx
+                ENDIF
+            ENDIF
 
-if (.not. (j==1)) then
-    if (j==2 .or. j==b) then
-    dy_south = 0.75*dy 
-    else
-    dy_south = dy 
-    end if
-    xi(3) =  - (ks*hx)/dy_south 
-    A(l,l-a) =  xi(3) 
-    dxi_dk(l,l-a) = -hx/dy_south 
-end
 
-if (.not. (j==b)) then
-    if ((j==b-1) .or. (j==1)) then
-    dy_north = 0.75*dy 
-    else
-    dy_north = dy 
-    end if
- xi(4) = -(kn*hx)/dy_north 
- A(l,l+a) = xi(4) 
- dxi_dk(l,l+a) = -hx/dy_north
- 
-end if
+            tot = tot+1
+            DAT(DAT3(l),1)= - (sum(xi) ) + Sdir
+            f(l) = Q*hx*hy + bdir
+            DAT4(DAT3(l))=l
+        ENDDO
+        DAT3(d**2+1)=tot
+        CALL pardiso_sym_solver2(DAT(:,1),DAT3,DAT4, f, d, DAT(1:d**2,2))
+    END SUBROUTINE
 
-! define source terms for Dirichlet Boundary
 
-if (( ((j-1)*dy >= 0.003) .and. ((j-1)*dy <= 0.007))) then
-if (i == 1) then
-Ts = 293 
-bdir = 2* Ts*kw*hy/hx
-Sdir = 2*kw*hy/hx 
-end if
-if (i== a) then
-Ts = 293      
-bdir =  2*Ts*ke*hy/hx
-Sdir = 2*ke*hy/hx 
-end if
-endif
 
-A(l,l) =  -(sum(xi))+(Sdir)
-dxi_dk(l,l) = sum(dxi_dk(l,:))
-f(l) = Q*hx*hy + bdir
+    SUBROUTINE harmonic_drv(x,c,dharm)
+        REAL(8), intent(out) :: dharm
+        REAL(8), intent(in) :: x,c
+        dharm= 2*(c**2/(x+c)**2)
+    END SUBROUTINE
 
-enddo
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! LINEAR SOLVE
 
-!T = A\f
-CALL solver_v1(A, f, (sqrt(m)+1), T)
+    SUBROUTINE getdir(d,ii,jj,dy,dx,Ts,dharm,theta_k_v,dbdir,dSdir)
+        INTEGER(8), intent(in)  :: d
+        INTEGER(8)			    :: ii, jj
+        REAL(8)                 :: dx, dy, Ts, dbdir, dSdir, dharm
+        REAL(8), DIMENSION(d+1,d+1), intent(inout) :: theta_k_v
+        dbdir =  4*Ts*dharm*theta_k_v(ii+1,jj+1)*dy/dx
+        dSdir = 4*dharm*theta_k_v(ii+1,jj+1)*dy/dx
+    END SUBROUTINE
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! LINEAR SOLVE
 
-! Gradient Calculations
 
-! FIELD ADJOINT EQ:
+    SUBROUTINE EV_GRAD_F_CHIP(N, X, NEW_X, GRAD, DAT, IDAT, IERR)
+        IMPLICIT NONE
+        INTEGER(8) NEW_X, IERR
+        INTEGER N
+        REAL(8)  X(N), GRAD(N)
+        REAL(8) DAT( 3*d**2-2*d, 2),IDAT(d+1,d+1)
+     
+        IF (NEW_X) THEN
+            CALL fvm_simulate(X,d,DAT,IDAT)
+        ENDIF
+            CALL ADJOINT(X,d,GRAD,DAT,IDAT)
+            GRAD=GRAD/(1d0*N)
+            IERR = 0
+        RETURN
+    END SUBROUTINE
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! LINEAR SOLVE
 
-!PSI = - T'*(A)^-1                      !good
-!PSI=((A)\(-T))'                        !better
-CALL solver_v1(A,T, (sqrt(m)+1), PSI)   !best
+    SUBROUTINE ADJOINT(v,d,GRAD,DAT,IDAT)
+        IMPLICIT NONE
+        INTEGER(8) :: d,n
+        REAL(8):: GRAD((d-1)**2), v((d-1)**2)
+        REAL(8):: DAT(3*d*d-2*d,2)
+        REAL(8):: IDAT(d+1,d+1)
+        INTEGER(8)   :: l,b,a,i, j, ii, jj, m !number of design variables
+        REAL(8)      :: lengthx, lengthy, lengthz, Q, Ts
+        REAL(8)      ::   dx, dy, hx, hy, dkdk
+        REAL(8)      ::   dbdir, dSdir, dharm
+        REAL(8)		 :: dx_east, dx_west, dy_north, dy_south
+        REAL(8), DIMENSION(3)  :: dxi_dv, vec
+        REAL(8), DIMENSION(d*d) :: PSI, theta_R_v
+        REAL(8), DIMENSION(d+1,d+1) :: theta_k_v
+        REAL(8), DIMENSION(d*d,5) :: dxi_dk
+               
+        CALL pardiso_sym_solver3(DAT(:,1),DAT3,DAT4, -DAT(1:d**2,2), d, PSI)
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! LINEAR SOLVE
+        lengthx = 0.005d0
+        lengthy = 0.005d0
+        lengthz = 0.001d0
+        Q = 0.5d0/(lengthz*lengthx*lengthy)
+        Ts = 293d0
 
-!for each vi calculate theta R/ theta vi (1xn matrix): find the state cells(equations)
-!which are affected by vi.
-!if I,J are the coordinates of vi, affected cells are going to be (in state
-!cell coordinates): (I,J) , (I+1,J), (I,J+1), (I+1,J+1). different xis are affected
-!for each of those. (xi2,x4,x5), (xi1,xi4,xi5), (xi2,xi3,xi5) and
-!(xi1,xi3,xi5) respectively. use chain rule, dot product with corresponding
-!temps gives the values @ theta_R_theta_vi(no. of cell) 
-!
+        a = d
+        b = a
+        m = (a-1)**2
+        n = a*b !number of state grid cells.
+        dx = lengthx/(a-1)
+        dy = lengthy/(b-1)  !dy should p
 
- do l = 1, m
- 
-    theta_R_v = 0
-    I  =  1+ mod(l-1,a-1)
-    J =  ceiling((l)/(b-1)) 
-    i =  1+ mod(l-1,a)
-    j =  ceiling((l)/(b)) 
-    m = I+(a)*(J-1)
+        theta_k_v=0
+        dxi_dk=0
+        DO ii = 2,d
+            DO jj = 2,d
+                theta_k_v(ii,jj)= p*(65d0-0.2d0)*v(ii-1+(a-1)*(jj-2))**(p-1d0)
+            ENDDO
+        ENDDO
+
+        theta_k_v(1,2:d)= theta_k_v(2,2:d)
+        theta_k_v(d+1,2:d)=theta_k_v(d,2:d)
+        theta_k_v(:,1)=theta_k_v(:,2)
+        theta_k_v(:,d+1)=theta_k_v(:,d)
+
+        DO l = 1,d**2
+            i= 1+ mod(l-1,a)
+            j =  ceiling(1d0*l/b)
     
-dxi_dv = 0
+            IF ( i==a .OR. i==1)  THEN
+                hx = dx/2
+            ELSE
+                hx = dx
+            ENDIF
+                
+            IF (j==1 .OR. j==b) THEN
+                hy = dy/2
+            ELSE
+                hy = dy
+            ENDIF
+   
+            IF (.NOT. (i==1)) THEN
+                IF (i==a .OR. i==2) THEN
+                    dx_west = 0.75d0*dx
+                ELSE
+                    dx_west = dx
+                ENDIF
+                dxi_dk(l,2) = -hy/dx_west
+            ENDIF
 
-! 1st ELEMENT
+            IF (.NOT. (i==a)) THEN
+                IF (i==a-1 .OR. i==1) THEN
+                    dx_east = 0.75d0*dx
+                ELSE
+                    dx_east = dx
+                ENDIF
+                dxi_dk(l,4) =  -hy/dx_east
+            ENDIF
 
-dbdir = 0
-dSdir = 0
+            IF (.NOT. (j==1)) THEN
+                IF (j==2 .OR. j==b) THEN
+                    dy_south = 0.75d0*dy
+                ELSE
+                    dy_south = dy
+                ENDIF
+                dxi_dk(l,1) = -hx/dy_south
+            ENDIF
 
-if (J==1) then
-    dkdk = 1
-else
-    dkdk = harmonic_drv(k(I+1,J+1),k(I+1,J))
-endif
+            IF (.NOT. (j==b)) THEN
+                IF ((j==b-1) .OR. (j==1)) THEN
+                    dy_north = 0.75d0*dy
+                ELSE
+                    dy_north = dy
+                ENDIF
+                dxi_dk(l,5) = -hx/dy_north
+            ENDIF
+            dxi_dk(l,3) = dxi_dk(l,1)+dxi_dk(l,2)+dxi_dk(l,4)+dxi_dk(l,5)
+        ENDDO
 
-dxi_dv(1) = dxi_dk(m,m+1)*dkdk*theta_k_v(I+1,J+1)!east
 
-if (I==1) then
-    dkdk = 1
-    if (( ((J-1)*dy >= 0.003)  .and. ((J-1)*dy <= 0.007))) then
-	
-call harmonic_drv(k(I+1,J+1),k(I+1,J), dharm)
-    dbdir =  4*Ts*dharm*theta_k_v(I+1,J+1)*dy/dx
-    dSdir = 4*dharm*theta_k_v(I+1,J+1)*dy/dx  
-    else
-    dbdir = 0
-    dSdir = 0
-    end if
-else
-    dkdk = harmonic_drv(k(I+1,J+1),k(I,J+1)) 
-endif
+        DO l = 1, (d-1)**2
+            theta_R_v = 0
+            ii  =  1+ mod(l-1,a-1)
+            jj =  ceiling((1.d0*l)/(b-1))
+            i =  1+ mod(l-1,a)
+            j =  ceiling((1.d0*l)/(b))
+            m = ii+(a)*(jj-1)
 
-dxi_dv(2) = dxi_dk(m,m+a)*dkdk*theta_k_v(I+1,J+1)!north
-dxi_dv(3) =  -(dxi_dv(1)+dxi_dv(2)) + dSdir
-vec = (/T(m+1),T(m+a),T(m)/)
-theta_R_v(m) =  dot_product(dxi_dv, vec) - dbdir
+            dxi_dv = 0d0
 
-!! 2nd ELEMENT
+            !! 1st ELEMENT
+            dbdir = 0d0
+            dSdir = 0d0
 
-dbdir = 0
-dSdir = 0
+            IF (jj==1) THEN
+                dkdk = 1d0
+            ELSE
+                CALL harmonic_drv(IDAT(ii+1,jj+1),IDAT(ii+1,jj),dkdk)
+            ENDIF
 
-if (J==1) then
-    dkdk = 1
-else
-    dkdk = harmonic_drv(k(I+1,J+1),k(I+1,J))
-end if
+            dxi_dv(1) = dxi_dk(m,4)*dkdk*theta_k_v(ii+1,jj+1)!east
 
-dxi_dv(1) = dxi_dk(m+1,m)*dkdk*theta_k_v(I+1,J+1)!west
+            IF (ii==1) THEN
+                dkdk = 1
+                IF (( ((jj-1)*dy >= 0.003d0)  .AND. ((jj-1)*dy <= 0.005d0))) THEN
+                    CALL harmonic_drv(IDAT(ii+1,jj+1),IDAT(ii+1,jj), dharm)
+                    CALL getdir(d,ii,jj,dy,dx,Ts,dharm,theta_k_v,dbdir,dSdir)
+                ELSE
+                    dbdir = 0d0
+                    dSdir = 0d0
+                ENDIF
+            ELSE
+                CALL harmonic_drv(IDAT(ii+1,jj+1),IDAT(ii,jj+1),dkdk)
+            ENDIF
 
-if (I==a-1) then
-    dkdk = 1
+            dxi_dv(2) = dxi_dk(m,5)*dkdk*theta_k_v(ii+1,jj+1) ! North
+            dxi_dv(3) =  -(dxi_dv(1)+dxi_dv(2)) + dSdir
+
+            vec = (/DAT(m+1,2),DAT(m+a,2),DAT(m,2)/)
+            theta_R_v(m) =  dot_product(dxi_dv, vec) - dbdir
+             
+            !! 2nd ELEMENT
+            dbdir = 0d0
+            dSdir = 0d0
+
+            IF (jj==1) THEN
+                dkdk = 1d0
+            ELSE
+                CALL harmonic_drv(IDAT(ii+1,jj+1),IDAT(ii+1,jj),dkdk)
+            ENDIF
     
-    if (( ((J-1)*dy >= 0.003)  .and. ((J-1)*dy <= 0.007))) then
-	
-call harmonic_drv(k(I+1,J+1),k(I+1,J), dharm)
-    dbdir =  4*Ts*dharm*theta_k_v(I+1,J)*dy/dx
-    dSdir = 4*dharm*theta_k_v(I+1,J)*dy/dx 
-     else
-    dbdir =  0
-    dSdir = 0
-    end if
-else
-    dkdk = harmonic_drv(k(I+1,J+1),k(I+2,J+1))
-    dbdir =  0
-    dSdir = 0 
-end if
-dxi_dv(2) = dxi_dk(m+1,m+a+1)*dkdk*theta_k_v(I+1,J+1)!north
-dxi_dv(3) =  -(dxi_dv(1)+dxi_dv(2)) + dSdir
-vec = (/T(m),T(m+1+a),T(m+1)/)
-theta_R_v(m+1) =  dot_product(dxi_dv, vec) - dbdir
-dbdir =  0
-    dSdir = 0
-!! 3rd ELEMENT
-if (J==b-1) then
-    dkdk = 1
-else
-    dkdk = harmonic_drv(k(I+1,J+1),k(I+1,J+2))
-endif
+            dxi_dv(1) = dxi_dk(m+1,2)*dkdk*theta_k_v(ii+1,jj+1) ! West
 
-dxi_dv(1) = dxi_dk(m+a,m+a+1)*dkdk*theta_k_v(I+1,J+1)!east
-if (I==1) then
-    dkdk = 1
-    if (( ((J)*dy >= 0.003)  .and. ((J)*dy <= 0.007)))  then
-call harmonic_drv(k(I+1,J+1),k(I+1,J+2), dharm)
-    dbdir =  4*Ts*dharm*theta_k_v(I+1,J+1)*dy/dx
-    dSdir = 4*dharm*theta_k_v(I+1,J+1)*dy/dx  	
-     else
-    dbdir =  0
-    dSdir = 0
-    endif
-else
-    call harmonic_drv(k(I+1,J+1),k(I,J+1),dkdk)
-    dbdir = 0
-    dSdir = 0
-endif
-dxi_dv(2) = dxi_dk(m+a,m)*dkdk*theta_k_v(I+1,J+1)!south
-dxi_dv(3) =  -(dxi_dv(1)+dxi_dv(2))+dSdir
-vec = (/T(m+a+1),T(m),T(m+a)/)
-theta_R_v(m+a) =  dot_product(dxi_dv, vec) - dbdir
+            IF (ii==a-1) THEN
+                dkdk = 1d0
+                dbdir =  0d0
+                dSdir = 0d0
+            ELSE
+                CALL harmonic_drv(IDAT(ii+1,jj+1),IDAT(ii+2,jj+1),dkdk)
+                dbdir =  0d0
+                dSdir = 0d0
+            ENDIF
+            dxi_dv(2) = dxi_dk(m+1,5)*dkdk*theta_k_v(ii+1,jj+1) ! North
+            dxi_dv(3) =  -(dxi_dv(1)+dxi_dv(2)) + dSdir
+            vec = (/DAT(m,2),DAT(m+1+a,2),DAT(m+1,2)/)
+            theta_R_v(m+1) =  dot_product(dxi_dv, vec) - dbdir
+           
+            dbdir =  0d0
+            dSdir = 0d0
+            !! 3rd ELEMENT
+            IF (jj==b-1) THEN
+                dkdk = 1d0
+            ELSE
+                CALL harmonic_drv(IDAT(ii+1,jj+1),IDAT(ii+1,jj+2),dkdk)
+            ENDIF
 
-!! 4th ELEMENT
-dbdir =  0
-    dSdir = 0
-if (J==b-1) then
-    dkdk = 1
-else
-    dkdk = harmonic_drv(k(I+1,J+1),k(I+1,J+2))
-endif
-
-dxi_dv(1) = dxi_dk(m+a+1,m+a)*dkdk*theta_k_v(I+1,J+1)!west
-
-if (I==a-1) then
-    dkdk = 1
+            dxi_dv(1) = dxi_dk(m+a,4)*dkdk*theta_k_v(ii+1,jj+1)!east
+            IF (ii==1) THEN
+                dkdk = 1d0
+                IF (( ((jj)*dy >= 0.003d0)  .and. ((jj)*dy <= 0.005d0)))  THEN
+                    CALL harmonic_drv(IDAT(ii+1,jj+1),IDAT(ii+1,jj+2), dharm)
+                    CALL getdir(d,ii,jj,dy,dx,Ts,dharm,theta_k_v,dbdir,dSdir)
+                ELSE
+                    dbdir =  0d0
+                    dSdir = 0d0
+                ENDIF
+            ELSE
+                CALL harmonic_drv(IDAT(ii+1,jj+1),IDAT(ii,jj+1),dkdk)
+                dbdir = 0d0
+                dSdir = 0d0
+            ENDIF
+                dxi_dv(2) = dxi_dk(m+a,1)*dkdk*theta_k_v(ii+1,jj+1)!south
+                dxi_dv(3) =  -(dxi_dv(1)+dxi_dv(2))+dSdir
+                vec = (/DAT(m+a+1,2),DAT(m,2),DAT(m+a,2)/)
+                theta_R_v(m+a) =  dot_product(dxi_dv, vec) - dbdir
+            
+            !! 4th ELEMENT
+            dbdir =  0d0
+            dSdir = 0d0
+            IF (jj==b-1) THEN
+                dkdk = 1d0
+            ELSE
+                CALL harmonic_drv(IDAT(ii+1,jj+1),IDAT(ii+1,jj+2),dkdk)
+            ENDIF
     
-    if (( ((J)*dy >= 0.003)  .and. ((J)*dy <= 0.007))) then
-	call harmonic_drv(k(I+1,J+1),k(I+1,J+2), dharm)
-    dbdir =  4*Ts*dharm*theta_k_v(I+1,J+1)*dy/dx
-    dSdir = 4*dharm*theta_k_v(I+1,J+1)*dy/dx     
-    else
-    dbdir =  0
-    dSdir = 0
-    endif
-else
-    call harmonic_drv(k(I+1,J+1),k(I+2,J+1),dkdk)
-    dbdir = 0
-    dSdir = 0
-endif 
+            dxi_dv(1) = dxi_dk(m+a+1,2)*dkdk*theta_k_v(ii+1,jj+1) ! West
 
-dxi_dv(2) = dxi_dk(m+a+1,m+1)*dkdk*theta_k_v(I+1,J+1)!south
-dxi_dv(3) =  -(dxi_dv(1)+dxi_dv(2)) + dSdir
-vec = (/T(m+a),T(m+1),T(m+a+1)/)
-theta_R_v(m+a+1) =  dot_product(dxi_dv, vec) - dbdir
+            IF (ii==a-1) THEN
+                dkdk = 1d0
+                dbdir =  0d0
+                dSdir = 0d0
+            ELSE
+                CALL harmonic_drv(IDAT(ii+1,jj+1),IDAT(ii+2,jj+1),dkdk)
+                dbdir = 0d0
+                dSdir = 0d0
+            ENDIF
+            dxi_dv(2) = dxi_dk(m+a+1,1)*dkdk*theta_k_v(ii+1,jj+1)!south
+            dxi_dv(3) =  -(dxi_dv(1)+dxi_dv(2)) + dSdir
+            vec = (/DAT(m+a,2),DAT(m+1,2),DAT(m+a+1,2)/)
+            theta_R_v(m+a+1) =  dot_product(dxi_dv, vec) - dbdir
+            GRAD(l) = dot_product(PSI,theta_R_v)
+        ENDDO
+    END SUBROUTINE
 
-G(l) = dot_product(PSI,theta_R_v)
 
- enddo
+    SUBROUTINE EV_G(N, X, NEW_X, M, G, DAT, IDAT, IERR)
+        IMPLICIT NONE
+        INTEGER N, NEW_X, M
+        DOUBLE PRECISION G(M), X(N), ONES(N), lengthx
+        REAL(8) DAT( 3*d**2-2*d, 2),IDAT(d+1,d+1)
+        INTEGER(8) IERR
 
-Cost = 0.5* dot_product(T,T)
+        lengthx=0.005d0
+        IF (NEW_X) THEN
+            CALL fvm_simulate(X,d,DAT,IDAT)
+        ENDIF
 
-end subroutine
+        ONES=(lengthx)**2/(1d0*N)
+        G(1)=dot_product(ONES,X)
+        IERR = 0
+        RETURN
+    END SUBROUTINE
 
-subroutine harmonic_drv(x,c,dharm) 
-real, intent(out) :: dharm
-real, intent(in) :: x,c
-dharm= 2*(c^2/(x+c)^2);
-end subroutine 
+    SUBROUTINE EV_JAC_G(TASK, N, X,NEW_X, M, NZ, ACON, AVAR, A,DAT,IDAT, IERR)
+        INTEGER TASK, N,  M, NZ,IERR,NEW_X
+        REAL(8) DAT( 3*d**2-2*d, 2),IDAT(d+1,d+1)
+        DOUBLE PRECISION  A(NZ),X(N)
+        INTEGER ACON(NZ), AVAR(NZ), I
+        INTEGER AVAR1(N), ACON1(N)
+
+      
+        ! Structure of Jacobian:
+        DO I=1,N
+            AVAR1(I)=I
+        ENDDO
+        ACON1= 1
+
+        IF( TASK.eq.0 ) THEN
+            DO I = 1, N
+                AVAR(I) = AVAR1(I)
+                ACON(I) = ACON1(I)
+            ENDDO
+        ELSE
+            DO I=1,N
+                A(I) = (0.01d0)**2/N
+            ENDDO
+        ENDIF
+        IERR = 0
+        RETURN
+    END SUBROUTINE
+END MODULE

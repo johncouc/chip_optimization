@@ -5,79 +5,43 @@
 ! Based on "pardiso_sym_f90.f90" example program to show the use of the "PARDISO" routine
 ! for symmetric linear systems
 !---------------------------------------------------------------------
+    INCLUDE 'mkl_pardiso.f90'
 MODULE pardiso_sparse_solver
     USE mkl_pardiso
-    !INCLUDE 'mkl_pardiso.fi'
-    INTEGER, PARAMETER :: dp = KIND(1.0D0)
+
+    INTEGER(8), PARAMETER :: dp = KIND(1.0D0)
+    TYPE(MKL_PARDISO_HANDLE), ALLOCATABLE           :: pt(:)
+    integer(8)                            :: iparm(64)
+    REAL(KIND=DP):: ddum(1)
+    integer(8):: maxfct, mnum,  phase, nrhs, error, msglvl,mtype
+    integer(8):: error1, CALLS=0
+    integer(8):: i, idum(1)
+
 CONTAINS
-    SUBROUTINE  uncompressed_to_CSR_converter(ADNS, m, ja, ia, Acsr)
-    ! Convert a sparse matrix in uncompressed representation to the CSR format
-    ! Double precision
-        IMPLICIT NONE
-        INTEGER                 :: m, info
-        REAL(8), DIMENSION(m,m) :: ADNS
-        REAL(8), DIMENSION(m*m) :: Acsr
-        INTEGER, DIMENSION(m+1) :: ia
-        INTEGER, DIMENSION(m*m) :: ja
-        INTEGER, DIMENSION(8)   :: job
 
-        info = 0
-        job(1)=0
-        job(2)= 1
-        job(3)= 1
-        job(4)= 1
-        job(5)=m*m
-        job(6)=1
+   SUBROUTINE pardiso_sym_solver2(acsr,ia,ja, b, m, x)
+        integer(8)                                         :: m
+        REAL(KIND=DP), DIMENSION(m*m)                     :: b
+        REAL(KIND=DP), DIMENSION(m*m),intent(inout)                     :: x
 
-        Acsr = 0
-        ja = 0
-        ia = 0
-
-        CALL mkl_ddnscsr(job,m,m,ADNS,m,Acsr,ja,ia,info)
-    END SUBROUTINE uncompressed_to_CSR_converter
-    
-    SUBROUTINE pardiso_sym_solver(A, b, m, x)
-        INTEGER                                         :: m, zero_index
-        REAL(KIND=DP), DIMENSION(m,m), INTENT(inout)    :: A
-        REAL(KIND=DP), DIMENSION(m)                     :: b
-        REAL(KIND=DP), DIMENSION(m)                     :: x
-        !.. Internal solver memory pointer
-        TYPE(MKL_PARDISO_HANDLE), ALLOCATABLE           :: pt(:)
-        !.. All other variables
-        INTEGER, ALLOCATABLE                            :: iparm(:)
-        REAL(KIND=DP), DIMENSION(m*m)                   :: acsr
-        INTEGER, DIMENSION(m+1)                         :: ia
-        INTEGER, DIMENSION(m*m)                         :: ja
-        INTEGER, DIMENSION(:), ALLOCATABLE              :: JAA
-        REAL(KIND=DP), DIMENSION(:), ALLOCATABLE        :: acsrr
-        REAL(KIND=DP) ddum(1)
-        INTEGER maxfct, mnum, mtype, phase, nrhs, error, msglvl
-        INTEGER error1
-        INTEGER i, idum(1)
+        integer(8), DIMENSION(m*m+1)                         :: ia
+        integer(8), DIMENSION(3*m**2-2*m)                         :: ja
+        REAL(KIND=DP), DIMENSION(3*m**2-2*m), INTENT(inout)      ::acsr
 
         !.. Fill all arrays containing matrix data.
         nrhs = 1
         maxfct = 1
         mnum = 1
-
-        ! Convert a sparse matrix in uncompressed representation to the CSR format
-        CALL uncompressed_to_CSR_converter(A, m, ja, ia, acsr)
-
-        zero_index = ia(size(ia)) - 1
-        ALLOCATE(jaa(zero_index))
-        ALLOCATE(acsrr(zero_index))
-        jaa = ja(:zero_index)
-        acsrr = acsr(:zero_index)
+       ! write(*,*) "PARDISO START"
 
         !..
         !.. Set up PARDISO control parameter
         !..
-        ALLOCATE(iparm(64))
-
+        if (CALLS .eq. 0) then
         iparm = 0
         iparm(1) = 1 ! no solver default
         iparm(2) = 2 ! fill-in reordering from METIS
-        iparm(4) = 0 ! no iterative-direct algorithm
+        iparm(4) = 0 !  iterative-direct algorithm - 0 or 62(?)
         iparm(5) = 0 ! no user fill-in reducing permutation
         iparm(6) = 0 ! =0 solution on the first n components of x
         iparm(8) = 2 ! numbers of iterative refinement steps
@@ -103,58 +67,110 @@ CONTAINS
         DO i = 1, 64
            pt(i)%DUMMY =  0
         END DO
+        CALLS=1
 
-        !.. Reordering and Symbolic Factorization, This step also allocates
-        ! all memory that is necessary for the factorization
+
+
+
 
         phase = 11 ! only reordering and symbolic factorization
-        CALL pardiso(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
-                      idum, nrhs, iparm, msglvl, ddum, ddum, error)
-        
-        !WRITE(*,*) 'Reordering completed ... '
-        IF (error /= 0) THEN
-           WRITE(*,*) 'The following ERROR was detected: ', error
-           GOTO 1000
-        END IF
-        !WRITE(*,*) 'Number of nonzeros in factors = ',iparm(18)
-        !WRITE(*,*) 'Number of factorization MFLOPS = ',iparm(19)
+        CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m*m, acsr, ia, ja,idum, nrhs, iparm, msglvl, ddum, ddum, error)
+        end if
 
-        !.. Factorization.
-        phase = 22 ! only factorization
-        CALL pardiso(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
-                      idum, nrhs, iparm, msglvl, ddum, ddum, error)
-        !WRITE(*,*) 'Factorization completed ... '
+     
+        !.. Reordering and Symbolic Factorization, This step also allocates
+        ! all memory that is necessary for the factorization
+        phase = 11 ! only reordering and symbolic factorization
+        CALLS=1
+        
         IF (error /= 0) THEN
            WRITE(*,*) 'The following ERROR was detected: ', error
-           GOTO 1000
+        END IF
+
+        if (CALLS .gt. 1 ) then
+        IPARM(4)=62
+        end if
+
+        phase = 22 ! only factorization
+        CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m*m, acsr, ia, ja, &
+                      idum, nrhs, iparm, msglvl, ddum, ddum, error)
+        IF (error /= 0) THEN
+           WRITE(*,*) 'The following ERROR was detected: ', error
         ENDIF
 
         !.. Back substitution and iterative refinement
-        iparm(8) = 2 ! max numbers of iterative refinement steps
-        phase = 33 ! only solving
-        CALL pardiso(pt, maxfct, mnum, mtype, phase, m, acsrr, ia, jaa, &
+                phase = 33 ! only solving
+        CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m*m, acsr, ia, ja, &
                       idum, nrhs, iparm, msglvl, b, x, error)
-        !WRITE(*,*) 'Solve completed ... '
         IF (error /= 0) THEN
            WRITE(*,*) 'The following ERROR was detected: ', error
-           GOTO 1000
+       !    GOTO 1000
         ENDIF
           
         1000 CONTINUE
-        !.. Termination and release of memory
-        phase = -1 ! release internal memory
-        CALL pardiso(pt, maxfct, mnum, mtype, phase, m, ddum, idum, idum, &
-                      idum, nrhs, iparm, msglvl, ddum, ddum, error1)
+        END SUBROUTINE pardiso_sym_solver2
 
-        IF (ALLOCATED(jaa)) DEALLOCATE(jaa)
-        IF (ALLOCATED(acsrr)) DEALLOCATE(acsrr)
-        IF (ALLOCATED(iparm)) DEALLOCATE(iparm)
+        SUBROUTINE pardiso_sym_solver3(acsr,ia,ja, b, m, x)
+        integer(8)                                         :: m 
+        REAL(KIND=DP), DIMENSION(m*m)                     :: b
+        REAL(KIND=DP), DIMENSION(m*m),intent(inout)                     :: x
+
+        !   TYPE(MKL_PARDISO_HANDLE), ALLOCATABLE           :: pt(:)
+        !.. All other variables
+        integer(8), DIMENSION(m*m+1)                         :: ia
+        integer(8), DIMENSION(3*m**2-2*m)                         :: ja
+        REAL(KIND=DP), DIMENSION(3*m**2-2*m), INTENT(inout)      ::acsr
+
+       !        integer(8)::mtype
+        !.. Fill all arrays containing matrix data.
+        nrhs = 1
+        maxfct = 1
+        mnum = 1
+
+        phase = 33 ! only solving
+        CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m*m, acsr, ia, ja, &
+                      idum, nrhs, iparm, msglvl, b, x, error)
+
+        CALLS=CALLS+1
+!        write(*,*) "end of pardiso, iparm(20) =", iparm(20)
+!        read(*,*)        
+        END SUBROUTINE pardiso_sym_solver3
+        
+        SUBROUTINE pardiso_release(m)
+        integer(8) :: m
+           
+!          write (*,*) "IPARM(20) : ", iparm(20)
+           
+                phase = -1 ! release internal memory
+        CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m*m, ddum, idum, idum,idum, nrhs, iparm, msglvl, ddum, ddum, error)
+         
+        !.. Termination and release of memory
+       
+       ! IF (ALLOCATED(jaa)) DEALLOCATE(jaa)
+       ! IF (ALLOCATED(acsrr)) DEALLOCATE(acsrr)
+       ! IF (ALLOCATED(iparm)) DEALLOCATE(iparm)
+        if (ALLOCATED(pt)) DEALLOCATE(pt)
 
         IF (error1 /= 0) THEN
-           WRITE(*,*) 'The following ERROR on release stage was detected: ', error1
+           WRITE(*,*) 'The following ERROR on release stage was detected: ', error
            STOP 1
         ENDIF
 
         IF (error /= 0) STOP 1
-    END SUBROUTINE pardiso_sym_solver
+    END SUBROUTINE pardiso_release
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 END MODULE pardiso_sparse_solver

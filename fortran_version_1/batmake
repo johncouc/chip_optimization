@@ -1,3 +1,0 @@
-rm *.obj
-rm *.mod
-ifort -heap-arrays ipopt.dll.lib  mkl_core.lib mkl_sequential.lib mkl_intel_lp64.lib sparse_system_solvers.f90 fvm.f90 hs071_f.f
