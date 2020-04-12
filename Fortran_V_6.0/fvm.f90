@@ -1,7 +1,7 @@
 module fvm
 
      ! USE sparse_system_solvers
-      USE pardiso_sparse_solver  	
+      USE pardiso_sparse_solver_v3  	
 
 IMPLICIT NONE
 SAVE

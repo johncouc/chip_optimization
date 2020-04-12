@@ -67,7 +67,7 @@ C
       integer(8) IPOPENOUTPUTFILE
 C
       double precision F
-C      integer(8) i
+      integer(8) i
 C
 
       real(8), dimension(1,N) :: v , GRAD
