@@ -3,7 +3,7 @@ MODULE fvm
     IMPLICIT NONE
     SAVE
     REAL(8):: p
-    INTEGER(8):: maxiters,d
+    INTEGER(8):: maxiters, d, point1, point2, pvaries
     INTEGER(8), dimension(:), allocatable:: DAT3,DAT4
 CONTAINS
 
@@ -465,10 +465,8 @@ CONTAINS
         IERR = 0
         RETURN
     END SUBROUTINE
-<<<<<<< HEAD
-=======
-	
-	
+
+
 	  subroutine ITER_CB(ALG_MODE, ITER_COUNT,OBJVAL, INF_PR, INF_DU, MU, DNORM, REGU_SIZE, ALPHA_DU, ALPHA_PR, LS_TRIAL, IDAT, DAT, ISTOP)
       implicit none
       integer ALG_MODE, ITER_COUNT, LS_TRIAL
@@ -476,8 +474,6 @@ CONTAINS
       double precision ALPHA_DU, ALPHA_PR
       REAL(8) DAT( 3*d**2-2*d, 2),IDAT(d+1,d+1)
       integer ISTOP
-	  
-	  
 	  
 	  if (pvaries .eq. 0) then
       if (ITER_COUNT .eq. 1) then
@@ -513,10 +509,4 @@ CONTAINS
       return
       end
 	
-	
-	
-	
-	
-	
->>>>>>> 839e5b23e7aaac5989b6f1c3c9c2d30119c30f20
 END MODULE
