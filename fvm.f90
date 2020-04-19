@@ -3,7 +3,7 @@ MODULE fvm
     IMPLICIT NONE
     SAVE
     REAL(8):: p
-    INTEGER(8):: maxiters,d,point1,point2,pvaries
+    INTEGER(8):: maxiters,d
     INTEGER(8), dimension(:), allocatable:: DAT3,DAT4
 CONTAINS
 
@@ -465,51 +465,4 @@ CONTAINS
         IERR = 0
         RETURN
     END SUBROUTINE
-	
-	
-	  subroutine ITER_CB(ALG_MODE, ITER_COUNT,OBJVAL, INF_PR, INF_DU, MU, DNORM, REGU_SIZE, ALPHA_DU, ALPHA_PR, LS_TRIAL, IDAT, DAT, ISTOP)
-      implicit none
-      integer ALG_MODE, ITER_COUNT, LS_TRIAL
-      double precision OBJVAL, INF_PR, INF_DU, MU, DNORM, REGU_SIZE
-      double precision ALPHA_DU, ALPHA_PR
-      
-       REAL(8) DAT( 3*d**2-2*d, 2),IDAT(d+1,d+1)
-      integer ISTOP
-    
-	 
-	  if (ITER_COUNT .eq. 1) then
-	  write(*,*) 'Test with p varying from 1 to 3'
-	  endif
-	  if (ITER_COUNT .lt. point1) p = 1
-	  
-	  if (ITER_COUNT .eq. point1) then
-	  write(*,*) 'p increase begins'
-	  endif
-	  if ((ITER_COUNT .gt. point1-1 ) .AND. (ITER_COUNT .lt. point2)) then
-				p=1 + 2*(ITER_COUNT-point1)/(point2-point1)
-	endif
-	
-	  if (ITER_COUNT .eq. point2) then
-	  write(*,*) 'p increase finished'
-	  endif
-                 if (ITER_COUNT .gt. point2-1) p = 3
-	
-	  !write(*,*) 'p=', p,'iter =', ITER_COUNT
-	  ! example stopping condition
-     ! if (INF_PR.le.1D-04) ISTOP = 1
-	 
-	 
-	 if (pvaries .eq. 0) then
-	   p =3
-	   endif
-	   
-
-      return
-      end
-	
-	
-	
-	
-	
-	
 END MODULE
