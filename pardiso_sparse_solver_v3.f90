@@ -3,24 +3,24 @@ MODULE pardiso_sparse_solver_v3
     USE mkl_pardiso
 
     TYPE(MKL_PARDISO_HANDLE), ALLOCATABLE       :: pt(:)
-    INTEGER(8) :: maxfct, mnum, mtype, phase, msglvl, error, nrhs
+    INTEGER :: maxfct, mnum, mtype, phase, msglvl, error, nrhs
 
     ! Control parameter: MODE
     ! set MODE=0 to use direct solver
     ! set Mode=1 to use iterative solver
-    INTEGER(8) :: iteration_count = 0, MODE=1
-    INTEGER(8), dimension(:), ALLOCATABLE       :: perm
-    INTEGER(8), dimension(64)                   :: iparm
+    INTEGER :: iteration_count = 0, MODE=1
+    INTEGER, dimension(:), ALLOCATABLE       :: perm
+    INTEGER, dimension(64)                   :: iparm
     REAL(8), DIMENSION(1)                       :: ddum
 
 CONTAINS
     SUBROUTINE pardiso_sym_solver2(acsr, ia, ja, b, m, x)
-        INTEGER(8)                              :: m
+        INTEGER                              :: m
         REAL(8), DIMENSION(3*m**2-2*m)          :: acsr
         REAL(8), dimension(m*m)                 :: b, x
-        INTEGER(8), dimension(3*m**2-2*m)       :: ja
-        INTEGER(8), dimension(m*m+1)            :: ia
-        INTEGER(8)                                 :: i
+        INTEGER, dimension(3*m**2-2*m)       :: ja
+        INTEGER, dimension(m*m+1)            :: ia
+        INTEGER                                 :: i
 
          iparm = 0
          iparm(1) = 1
@@ -81,11 +81,11 @@ CONTAINS
 
 
     SUBROUTINE pardiso_sym_solver3(acsr, ia, ja, b, m, x)
-        INTEGER(8)                              :: m
+        INTEGER                              :: m
         REAL(8), DIMENSION(3*m**2-2*m)          :: acsr
         REAL(8), dimension(m*m)                 :: b, x
-        INTEGER(8), dimension(3*m**2-2*m)       :: ja
-        INTEGER(8), dimension(m*m+1)            :: ia
+        INTEGER, dimension(3*m**2-2*m)       :: ja
+        INTEGER, dimension(m*m+1)            :: ia
 
         phase = 33 ! only solving
         CALL pardiso(pt, maxfct, mnum, mtype, phase, m*m, acsr, ia, ja, perm, nrhs, iparm, msglvl, b, x, error)
@@ -94,7 +94,7 @@ CONTAINS
 
 
     SUBROUTINE pardiso_release(m)
-        INTEGER(8) :: m
+        INTEGER :: m
                           
         phase = -1 ! release internal memory
         CALL pardiso(pt, maxfct, mnum, mtype, phase, m*m, ddum, perm, perm, perm, nrhs, iparm, msglvl, ddum, ddum, error)

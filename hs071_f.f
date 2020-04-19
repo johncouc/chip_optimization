@@ -22,7 +22,7 @@ C     include the Ipopt return codes
       INCLUDE 'IpReturnCodes.inc'
       
 C     Size of the problem (number of variables and equality constraints)
-      INTEGER(8) N, M, NELE_JAC, NELE_HESS, IDX_STY
+      INTEGER N, M, NELE_JAC, NELE_HESS, IDX_STY
       PARAMETER  (N =100*100, M = 1, NELE_JAC = N, NELE_HESS = 0)
       PARAMETER  (IDX_STY = 1 )
 
@@ -38,7 +38,7 @@ C     Vector of lower and upper bounds
       DOUBLE PRECISION G_L(M), G_U(M)
 
 C     Private data for evaluation routines
-C     This could be used to pass DOUBLE PRECISION and INTEGER(8) arrays untouched
+C     This could be used to pass DOUBLE PRECISION and INTEGER arrays untouched
 C     to the evaluation subroutines EVAL_*
       DOUBLE PRECISION, DIMENSION (:,:), ALLOCATABLE ::DAT
       DOUBLE PRECISION, DIMENSION (:,:), ALLOCATABLE:: IDAT
@@ -51,13 +51,13 @@ C     for 64 bit platforms:
       INTEGER*8 IPROBLEM
       INTEGER*8 IPCREATE
 
-      INTEGER(8) IERR
-      INTEGER(8) IPSOLVE, IPADDSTROPTION
-      INTEGER(8) IPADDNUMOPTION, IPADDINTOPTION
-      INTEGER(8) IPOPENOUTPUTFILE
+      INTEGER IERR
+      INTEGER IPSOLVE, IPADDSTROPTION
+      INTEGER IPADDNUMOPTION, IPADDINTOPTION
+      INTEGER IPOPENOUTPUTFILE
 
       DOUBLE PRECISION F
-      INTEGER(8) i
+      INTEGER i
 
       REAL(8), DIMENSION(1,N) :: v , GRAD
 

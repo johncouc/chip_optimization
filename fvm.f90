@@ -3,16 +3,16 @@ MODULE fvm
     IMPLICIT NONE
     SAVE
     REAL(8):: p
-    INTEGER(8):: maxiters, d, point1, point2, pvaries
-    INTEGER(8), dimension(:), allocatable:: DAT3,DAT4
+    INTEGER:: maxiters, d, point1, point2, pvaries
+    INTEGER, dimension(:), allocatable:: DAT3,DAT4
 CONTAINS
 
     SUBROUTINE EV_F_CHIP(N, X, NEW_X, F, DAT, IDAT, IERR)
         IMPLICIT NONE
-        INTEGER(8) N, NEW_X
+        INTEGER N, NEW_X
         REAL(8) F, X(N)
         REAL(8) DAT(3*d**2-2*d,2), IDAT(d+1,d+1)
-        INTEGER(8) IERR
+        INTEGER IERR
         
         IF (NEW_X) THEN
             CALL fvm_simulate(X,d,DAT,IDAT)
@@ -24,8 +24,8 @@ CONTAINS
     END
 
     SUBROUTINE fvm_simulate(v, d,DAT,IDAT)
-        INTEGER(8), intent(in)::d
-        INTEGER(8)	:: l,b,a,i, j, ii, jj, m,tot,el ! number of design variables
+        INTEGER, intent(in)::d
+        INTEGER	:: l,b,a,i, j, ii, jj, m,tot,el ! number of design variables
         REAL(8)     ::  lengthx, lengthy, lengthz, Q, Ts
         REAL(8)     ::  n, dx, dy, hx, hy
         REAL(8)     ::  bdir,  Sdir
@@ -169,8 +169,8 @@ CONTAINS
 
 
     SUBROUTINE getdir(d,ii,jj,dy,dx,Ts,dharm,theta_k_v,dbdir,dSdir)
-        INTEGER(8), intent(in)  :: d
-        INTEGER(8)			    :: ii, jj
+        INTEGER, intent(in)  :: d
+        INTEGER			    :: ii, jj
         REAL(8)                 :: dx, dy, Ts, dbdir, dSdir, dharm
         REAL(8), DIMENSION(d+1,d+1), intent(inout) :: theta_k_v
         dbdir =  4*Ts*dharm*theta_k_v(ii+1,jj+1)*dy/dx
@@ -181,7 +181,7 @@ CONTAINS
 
     SUBROUTINE EV_GRAD_F_CHIP(N, X, NEW_X, GRAD, DAT, IDAT, IERR)
         IMPLICIT NONE
-        INTEGER(8) NEW_X, IERR
+        INTEGER NEW_X, IERR
         INTEGER N
         REAL(8)  X(N), GRAD(N)
         REAL(8) DAT( 3*d**2-2*d, 2),IDAT(d+1,d+1)
@@ -198,11 +198,11 @@ CONTAINS
 
     SUBROUTINE ADJOINT(v,d,GRAD,DAT,IDAT)
         IMPLICIT NONE
-        INTEGER(8) :: d,n
+        INTEGER :: d,n
         REAL(8):: GRAD((d-1)**2), v((d-1)**2)
         REAL(8):: DAT(3*d*d-2*d,2)
         REAL(8):: IDAT(d+1,d+1)
-        INTEGER(8)   :: l,b,a,i, j, ii, jj, m !number of design variables
+        INTEGER   :: l,b,a,i, j, ii, jj, m !number of design variables
         REAL(8)      :: lengthx, lengthy, lengthz, Q, Ts
         REAL(8)      ::   dx, dy, hx, hy, dkdk
         REAL(8)      ::   dbdir, dSdir, dharm
@@ -425,7 +425,7 @@ CONTAINS
         INTEGER N, NEW_X, M
         DOUBLE PRECISION G(M), X(N), ONES(N), lengthx
         REAL(8) DAT( 3*d**2-2*d, 2),IDAT(d+1,d+1)
-        INTEGER(8) IERR
+        INTEGER IERR
 
         lengthx=0.005d0
         IF (NEW_X) THEN
