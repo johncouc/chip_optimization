@@ -61,18 +61,18 @@ CONTAINS
 
         IF(iteration_count == 0 ) THEN
             phase=11
-            CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m*m, acsr, ia, &
+            CALL pardiso(pt, maxfct, mnum, mtype, phase, m*m, acsr, ia, &
                          ja, perm, nrhs, iparm, msglvl, b, x, error)
         END IF
         
         IF(MODE ==0 .OR. iteration_count==0 ) THEN
             phase=23
-            CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m*m, acsr, ia, &
+            CALL pardiso(pt, maxfct, mnum, mtype, phase, m*m, acsr, ia, &
                          ja, perm, nrhs, iparm, msglvl, b, x, error)
         ELSE
             phase=23
             iparm(4)=62
-            CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m*m, acsr, ia, &
+            CALL pardiso(pt, maxfct, mnum, mtype, phase, m*m, acsr, ia, &
                          ja, perm, nrhs, iparm, msglvl, b, x, error)
         ENDIF
         iteration_count = iteration_count + 1
@@ -88,7 +88,7 @@ CONTAINS
         INTEGER(8), dimension(m*m+1)            :: ia
 
         phase = 33 ! only solving
-        CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m*m, acsr, ia, ja, perm, nrhs, iparm, msglvl, b, x, error)
+        CALL pardiso(pt, maxfct, mnum, mtype, phase, m*m, acsr, ia, ja, perm, nrhs, iparm, msglvl, b, x, error)
     END SUBROUTINE
 
 
@@ -97,7 +97,7 @@ CONTAINS
         INTEGER(8) :: m
                           
         phase = -1 ! release internal memory
-        CALL pardiso_64(pt, maxfct, mnum, mtype, phase, m*m, ddum, perm, perm, perm, nrhs, iparm, msglvl, ddum, ddum, error)
+        CALL pardiso(pt, maxfct, mnum, mtype, phase, m*m, ddum, perm, perm, perm, nrhs, iparm, msglvl, ddum, ddum, error)
          
         !.. Termination and release of memory
         IF (ALLOCATED(pt)) DEALLOCATE(pt)
