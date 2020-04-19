@@ -23,7 +23,7 @@ C     include the Ipopt return codes
       
 C     Size of the problem (number of variables and equality constraints)
       INTEGER(8) N, M, NELE_JAC, NELE_HESS, IDX_STY
-      PARAMETER  (N =160*160, M = 1, NELE_JAC = N, NELE_HESS = 0)
+      PARAMETER  (N =100*100, M = 1, NELE_JAC = N, NELE_HESS = 0)
       PARAMETER  (IDX_STY = 1 )
 
 C     Space for multipliers and constraints
@@ -111,7 +111,7 @@ C     Set a string option
       IF (IERR .NE.0 ) goto 9990
 
 C     Set an INTEGER option
-      IERR = IPADDINTOPTION(IPROBLEM, 'max_iter',150)
+      IERR = IPADDINTOPTION(IPROBLEM, 'max_iter',10)
       IF (IERR .NE.0 ) goto 9990
 
       !IERR = IPADDINTOPTION(IPROBLEM, 'print_level',0)
