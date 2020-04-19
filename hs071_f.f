@@ -109,13 +109,13 @@ C     Set a string option
 	 
 	      IF (IERR .NE.0 ) goto 9990
 
-	  !pvaries: binary: 1 = vary p from 1 to 3, 0 = fix p =3 
+	  !pvaries: binary: 1 = vary p from 1 to 3, 0 = fix p = 3 
 	 pvaries = 1
 	  !point1: iteration to begin increasing p
-	 point1 = 5
+	 point1 = 10
 	  !point2: iteration to finish increasing p
-	 point2 = 10
-	  maxiters = 100
+	 point2 = 20
+	  maxiters = 150
 
 C     Set an INTEGER option
       IERR = IPADDINTOPTION(IPROBLEM, 'max_iter',maxiters)
