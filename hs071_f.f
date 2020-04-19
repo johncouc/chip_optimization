@@ -106,12 +106,19 @@ C     Set a string option
       IF (IERR .NE.0 ) goto 9990
       IERR = IPADDSTROPTION(IPROBLEM,'hessian_approximation',
      1'limited-memory')
+	 
+	      IF (IERR .NE.0 ) goto 9990
 
-
-      IF (IERR .NE.0 ) goto 9990
+	  !pvaries: binary: 1 = vary p from 1 to 3, 0 = fix p =3 
+	 pvaries = 1
+	  !point1: iteration to begin increasing p
+	 point1 = 5
+	  !point2: iteration to finish increasing p
+	 point2 = 10
+	  maxiters = 100
 
 C     Set an INTEGER option
-      IERR = IPADDINTOPTION(IPROBLEM, 'max_iter',10)
+      IERR = IPADDINTOPTION(IPROBLEM, 'max_iter',maxiters)
       IF (IERR .NE.0 ) goto 9990
 
       !IERR = IPADDINTOPTION(IPROBLEM, 'print_level',0)
@@ -132,6 +139,20 @@ C     Set a DOUBLE PRECISION option
       p=3d0
 
 C     CALL optimization routine
+
+
+
+C
+C     Set a callback function to give you control once per iteration.
+C     You can use it if you want to generate some output, or to stop
+C     the optimization early.
+C
+
+	  
+      call IPSETCALLBACK(IPROBLEM, ITER_CB)
+
+
+
       IERR = IPSOLVE(IPROBLEM, X, G, F, LAM, Z_L, Z_U, DAT, IDAT)
       CALL stopClock()
       CALL toc()
