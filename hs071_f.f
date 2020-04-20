@@ -78,6 +78,11 @@ C     for 64 bit platforms:
       v=0.4d0 
  
 C     Set initial point and bounds:
+C      OPEN(unit=2, file="optimization_result")
+C      DO I=1,N
+C         READ(2,*) X(I)
+C      ENDDO
+C      CLOSE(2)
       X =  0.4
       X_L =0
       X_U= 1
