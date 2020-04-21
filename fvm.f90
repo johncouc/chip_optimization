@@ -156,6 +156,11 @@ CONTAINS
         ENDDO
         DAT3(d**2+1)=tot
         CALL pardiso_sym_solver2(DAT(:,1),DAT3,DAT4, f, d, DAT(1:d**2,2))
+        ! OPEN (unit = 4, file = "temp")
+        ! DO l=1,N
+        ! WRITE(4,*)DAT(l,d**2+1)
+        ! ENDDO
+        ! CLOSE(4)
     END SUBROUTINE
 
 
@@ -417,6 +422,15 @@ CONTAINS
             theta_R_v(m+a+1) =  dot_product(dxi_dv, vec) - dbdir
             GRAD(l) = dot_product(PSI,theta_R_v)
         ENDDO
+        ! OPEN(unit = 3, file = "symmetric_grad")
+        ! DO l=1,N
+        !   WRITE(3,*)GRAD(l)
+        ! ENDDO
+        !   OPEN(unit = 4, file = "PSI")
+        ! DO l=1,N
+        !   WRITE(4,*)PSI(l)
+        ! ENDDO
+        ! CLOSE(4)
     END SUBROUTINE
 
 
