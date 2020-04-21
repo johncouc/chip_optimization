@@ -12,7 +12,7 @@ C                            Main driver program
 C
 C =============================================================================
 C
-      PROGRAM example
+      PROGRAM main
       USE timings
       USE fvm
 
