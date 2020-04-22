@@ -1,5 +1,5 @@
 rm *.obj
 rm *.mod
 export MKL_NUM_THREADS=4
-ifort  ipopt.dll.lib  -heap-arrays -warn -O3 mkl_core_dll.lib mkl_intel_thread_dll.lib mkl_intel_lp64_dll.lib pardiso_sparse_solver_v3.f90 timings.f90 fvm.f90 main.f
+ifort -o main.exe ipopt.dll.lib  -heap-arrays -warn -O3 mkl_core_dll.lib mkl_intel_thread_dll.lib mkl_intel_lp64_dll.lib pardiso_sparse_solver_v3.f90 timings.f90 fvm.f90  main.f
 
