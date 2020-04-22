@@ -8,7 +8,7 @@ Needed libraries:
 * IPOpt 3.13.1. 
 Instructions:
 
-### DESCRIOTION ###
+### DESCRIPTION ###
 Program consists of 4 modules: 
 * main.f90, 
 * fvm.f90                      (contains subroutines for FVM simulation, adjoint, objective function and constraint evaluation),
