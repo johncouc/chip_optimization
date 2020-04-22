@@ -34,7 +34,7 @@ The file "ipopt.out" contains the terminal output of the program.
 
 ### TESTING ###
 * To run the derivative test, enable the derivative-test option.
-* One can change the SIMP strategy and have a varying penalty parameter through the optimization
+* You can change the SIMP strategy and have a varying penalty parameter through the optimization
   (default is p=3 constant).
 * The sparse solver can be changed to iterative with preconditioning, by toggling MODE = 1 
   in the pardiso_sparse_solver_v3.f90 file.
