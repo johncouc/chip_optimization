@@ -1,0 +1,4 @@
+export MKL_NUM_THREADS=4
+ifort `PKG_CONFIG_PATH=/home/r0769473/Desktop/Ipopt_install/lib/pkgconfig:/home/r0769473/intel/compilers_and_libraries_2020.0.166/linux/mkl/bin/pkgc pkg-config --cflags ipopt` -O3 -mkl -c pardiso_sparse_solver_v3.f90 fvm.f90 timings.f90 main.f
+ifort -Wl,--rpath -Wl,/home/r0769473/Desktop/Ipopt_install/lib -O3  -o main pardiso_sparse_solver_v3.o fvm.o timings.o  main.o `PKG_CONFIG_PATH=/home/r0769473/Desktop/Ipopt_install/lib/pkgconfig:/home/r0769473/intel/compilers_and_libraries_2020.0.166/linux/mkl/bin/ pkg-config --libs ipopt` -mkl
+./main
