@@ -20,9 +20,9 @@ to compile/link, you can look at the "compile" scripts, which is what we used on
 
 ### PROBLEM OPTIONS ###
 In the main file you can set all options for the optimization. This includes options such as:
-no of variables and no of iterations. One can set the initial value (or continuing where you left off by uncommenting lines).
+no of variables and no of iterations. One can set the initial value (or continuing where you left off by uncommenting lines 74-79).
 There is a plethora of options that can be set for IPopt: options about line search, barrier strategy,
-sparse solver options, statistics and ...
+sparse solver options, statistics and so on.
 The settings that are already there, are the ones that worked best for our optimization
 but there is definitely a room for exploration, especially in the commented options.
 For more information, please consult the documentation: https://coin-or.github.io/Ipopt/OPTIONS.html
@@ -33,8 +33,8 @@ For a visualization of the final result, please run the Matlab script "create_sy
 The file "ipopt.out" contains the terminal output of the program.
 
 ### TESTING ###
-* To run the derivative test, enable the the derivative-test option.
-* One can change the SIMP strategy and have a varying penalty parameter through the optimization
+* To run the derivative test, enable the derivative-test option.
+* You can change the SIMP strategy and have a varying penalty parameter through the optimization
   (default is p=3 constant).
 * The sparse solver can be changed to iterative with preconditioning, by toggling MODE = 1 
   in the pardiso_sparse_solver_v3.f90 file.
